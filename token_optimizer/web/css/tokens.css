@@ -1,0 +1,13 @@
+/* Design tokens: palette, typefaces, radii.
+   Change the theme here and nothing else. */
+
+:root{
+    --bg:#0B1514; --bg2:#0E1B19; --panel:#102220; --panel2:#0C1917;
+    --line:#1E332F; --line2:#274741;
+    --ink:#EAF0EE; --muted:#8AA39D; --faint:#5C726C;
+    --mint:#43D6A3; --mint-soft:rgba(67,214,163,.13); --mint-line:rgba(67,214,163,.35);
+    --amber:#E7A54E; --amber-soft:rgba(231,165,78,.13);
+    --red:#E4685D;
+    --disp:'Space Grotesk',sans-serif; --body:'Inter',sans-serif; --mono:'JetBrains Mono',monospace;
+    --r:14px;
+  }

@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# Harness output (regenerate with run_sweep.py / run_bench.py)
+results/
+*.png
+
+# Secrets — never commit API keys
+.env
+*.key
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp

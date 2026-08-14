@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Token Meter — optimization console</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+<!-- Stylesheets, in cascade order: variables -> reset -> structure -> pieces -->
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/layout.css">
+<link rel="stylesheet" href="css/components.css">
+</head>
+
+<header>
+  <div class="wrap head">
+    <div class="brand">
+      <span class="dot" aria-hidden="true"></span>
+      <b>Token&nbsp;Meter</b>
+      <span>optimization console</span>
+    </div>
+    <div class="navnote"><span id="enginechip" class="chip off">engine: offline · using browser estimate</span></div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section class="hero">
+    <div class="eyebrow">Same answers, fewer tokens — measured, not claimed</div>
+    <h1>Watch the prompt shrink and the bill <span class="cut">drop.</span></h1>
+    <p class="lede">Drag the retention dial. The engine keeps the sentences that answer the
+      question and drops the rest — and the meter shows exactly what you stopped paying for.
+      Every number here is reproducible from the harness, quality checks included.</p>
+
+    <div class="console">
+      <!-- INPUT -->
+      <div class="card">
+        <h3>Input · a real request</h3>
+        <label class="f" for="ctx">Context sent to the model</label>
+        <textarea id="ctx"></textarea>
+
+        <div class="runrow">
+          <button class="btn btn-primary" id="runbtn" type="button">Run trim ↻</button>
+          <span class="runnote">updates live as you type too — this just confirms it ran</span>
+        </div>
+
+        <div class="sliderrow" style="margin-top:16px">
+          <div style="flex:1">
+            <label class="f" style="margin:0 0 6px">Context retained (keep_ratio)</label>
+            <input type="range" id="ratio" min="10" max="100" step="5" value="50" />
+          </div>
+          <div class="ratioval" id="ratioval">50%</div>
+        </div>
+
+        <div class="pricerow">
+          <div class="fld">
+            <label class="f" style="margin:0 0 6px">Price · $ / 1M input tokens</label>
+            <input type="text" id="price" value="0.15" inputmode="decimal" />
+          </div>
+          <div class="fld">
+            <label class="f" style="margin:0 0 6px">Requests / day</label>
+            <input type="text" id="rpd" value="50000" inputmode="numeric" />
+          </div>
+        </div>
+
+        <div class="enginerow" id="enginerow" hidden>
+          <label class="switch"><input type="checkbox" id="engtoggle" /> <span>Use live engine</span></label>
+          <select id="relsel" aria-label="relevance scorer">
+            <option value="lexical">lexical</option>
+            <option value="embedding">embedding</option>
+          </select>
+          <span class="src" id="demosource"></span>
+        </div>
+      </div>
+
+      <!-- OUTPUT -->
+      <div class="card" id="outcard">
+        <h3>Output · what actually gets sent</h3>
+
+        <div class="meterwrap">
+          <div class="meterhead">
+            <span class="lab">Token meter</span>
+            <span class="pct" id="savedpct">–</span>
+          </div>
+          <div class="meter">
+            <div class="kept" id="meterkept" style="width:100%"></div>
+            <div class="ticks" id="ticks" aria-hidden="true"></div>
+            <div class="cap" id="metercap"></div>
+          </div>
+        </div>
+
+        <div class="readouts">
+          <div class="ro"><div class="k">Tokens before</div><div class="v" id="tbefore">–</div></div>
+          <div class="ro good"><div class="k">Tokens after</div><div class="v" id="tafter">–</div></div>
+          <div class="ro good"><div class="k">Saved / call</div><div class="v" id="tsaved">–</div></div>
+        </div>
+
+        <div class="out">
+          <label class="f">Trimmed context <span class="muted">(kept vs dropped)</span></label>
+          <div class="outbox" id="outbox"></div>
+          <div class="legend">
+            <span><i class="swatch" style="background:var(--ink)"></i> kept — ranked most relevant</span>
+            <span><i class="swatch" style="background:var(--red);opacity:.6"></i> dropped</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BENCHMARK -->
+  <section class="sec">
+    <div class="sec-h">
+      <div>
+        <div class="eyebrow">The proof, not the pitch</div>
+        <h2>Savings vs quality — with confidence</h2>
+        <p>The dial above is the demo; this is the receipt. Each point is a real run through the
+          harness. A point sits high (quality held) and far right (tokens saved) when the strategy
+          is working. Load your own <span class="mono">curve.json</span> or
+          <span class="mono">bench.json</span> to replace the sample.</p>
+      </div>
+    </div>
+
+    <div class="benchgrid">
+      <div class="chartcard">
+        <div id="chart"></div>
+        <div class="chartfoot" id="chartfoot">sample: HotpotQA semantic-cache threshold sweep</div>
+        <div class="loadrow">
+          <button class="btn" id="loadbtn">Load your results ↑</button>
+          <input type="file" id="file" accept="application/json" style="display:none" />
+          <span class="loadnote" id="loadnote">reads curve.json (trim/cache sweep) or bench.json (Phase 5 table)</span>
+        </div>
+      </div>
+
+      <div class="chartcard">
+        <h3 style="font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:0 0 12px">
+          Benchmark table</h3>
+        <table id="benchtable">
+          <thead><tr><th>config</th><th>tok saved</th><th>F1 Δ</th><th>verdict</th></tr></thead>
+          <tbody id="benchbody"></tbody>
+        </table>
+        <p style="font-size:11.5px;color:var(--faint);margin:14px 0 0;line-height:1.5">
+          <span class="mono" style="color:var(--mint)">ns</span> = quality change is inside the noise band
+          (a real saving, no real quality cost). <span class="mono" style="color:var(--amber)">real</span> =
+          the change is statistically distinguishable from zero — decide if it's worth it.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- COST PROJECTOR -->
+  <section class="sec">
+    <div class="sec-h">
+      <div>
+        <div class="eyebrow">Translate tokens into money</div>
+        <h2>What this saves per month</h2>
+        <p>Driven live by the dial above and your price. This is the sentence a buyer remembers.</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="projgrid">
+        <div>
+          <div class="ro" style="border:none;background:none;padding:0">
+            <div class="k mono" style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)">Monthly spend · before</div>
+            <div class="v mono" style="font-size:26px;font-weight:700;margin-top:6px" id="spendbefore">–</div>
+          </div>
+        </div>
+        <div>
+          <div class="ro" style="border:none;background:none;padding:0">
+            <div class="k mono" style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)">Monthly spend · after</div>
+            <div class="v mono" style="font-size:26px;font-weight:700;margin-top:6px;color:var(--mint)" id="spendafter">–</div>
+          </div>
+        </div>
+        <div>
+          <div class="k mono" style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)">You stop paying</div>
+          <div class="bigmoney" id="spendsaved">–<small>/mo</small></div>
+        </div>
+      </div>
+      <p style="font-size:11.5px;color:var(--faint);margin:18px 0 0">
+        Estimate: current retention setting × your price × requests/day × 30. Input-token cost only;
+        output and caching gains stack on top. Not a quote — reproduce it with
+        <span class="mono">run_bench.py</span>.</p>
+    </div>
+  </section>
+
+  <!-- PIPELINE -->
+  <section class="sec">
+    <div class="sec-h">
+      <div>
+        <div class="eyebrow">What's under the meter</div>
+        <h2>Five plugins, one measurement loop</h2>
+        <p>Each stage is scored the same way — savings on one axis, quality on the other, always together.</p>
+      </div>
+    </div>
+    <div class="flow">
+      <div class="step"><div class="n">01</div><h4>Trim</h4><p>Rank context by relevance to the question, keep the top slice.</p></div>
+      <div class="step"><div class="n">02</div><h4>Cache</h4><p>Reuse answers for semantically repeat requests — a hit costs ~0 tokens.</p></div>
+      <div class="step"><div class="n">03</div><h4>Route</h4><p>Cheap model for easy calls, escalate only when needed.</p></div>
+      <div class="step"><div class="n">04</div><h4>Measure</h4><p>Exact-match + F1 against gold answers on every run.</p></div>
+      <div class="step"><div class="n">05</div><h4>Prove</h4><p>Bootstrap confidence bands flag any "win" that's really noise.</p></div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <span class="mono">Token Meter</span> — a viewer for the token-optimization harness.
+    All figures reproducible offline; the sample benchmark shown is a HotpotQA cache run.
+    Numbers are estimates for demonstration, not a pricing quote.
+  </div>
+</footer>
+<!-- Scripts, in dependency order. Plain scripts (not ES modules) so the page
+     also works when opened directly from the filesystem. -->
+<script src="js/trim.js"></script>
+<script src="js/format.js"></script>
+<script src="js/sample-data.js"></script>
+<script src="js/parse.js"></script>
+<script src="js/chart.js"></script>
+<script src="js/api.js"></script>
+<script src="js/demo.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

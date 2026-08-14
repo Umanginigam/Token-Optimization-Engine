@@ -1,4 +1,3 @@
-"""Token trimming functionality."""
 """Phase 2 — relevance-based context trimming.
 
 This is the first real optimizer. It plugs into the Phase 1 seam:
@@ -119,6 +118,35 @@ def build_relevance_from_env():
 # The trimmer (a context_transform factory)
 # ---------------------------------------------------------------------------
 
+def annotate(
+    question: str,
+    context: str,
+    keep_ratio: float,
+    relevance,
+    min_sentences: int = 1,
+):
+    """Return the per-sentence keep/drop decision for a context.
+
+    [{ "text": str, "keep": bool, "score": float }, ...] in original order.
+    This is the single source of truth for which sentences survive a trim; both
+    make_trimmer (CLI) and the web server build on it, so they can never diverge.
+    """
+    sentences = split_sentences(context)
+    if len(sentences) <= min_sentences:
+        return [{"text": s, "keep": True, "score": 1.0} for s in sentences]
+
+    scores = relevance.score(question, sentences)
+    k = max(min_sentences, math.ceil(len(sentences) * keep_ratio))
+    k = min(k, len(sentences))
+
+    top = sorted(range(len(sentences)), key=lambda i: scores[i], reverse=True)[:k]
+    keep = set(top)
+    return [
+        {"text": sentences[i], "keep": i in keep, "score": float(scores[i])}
+        for i in range(len(sentences))
+    ]
+
+
 def make_trimmer(
     relevance,
     keep_ratio: float = 0.5,
@@ -136,17 +164,8 @@ def make_trimmer(
         sentences = split_sentences(context)
         if len(sentences) <= min_sentences:
             return context
-
-        scores = relevance.score(question, sentences)
-
-        k = max(min_sentences, math.ceil(len(sentences) * keep_ratio))
-        k = min(k, len(sentences))
-
-        # indices of the top-k sentences by score...
-        top = sorted(range(len(sentences)), key=lambda i: scores[i], reverse=True)[:k]
-        keep = set(top)
-
-        # ...reassembled in original reading order.
-        return " ".join(sentences[i] for i in range(len(sentences)) if i in keep)
+        ann = annotate(question, context, keep_ratio, relevance, min_sentences)
+        # reassembled in original reading order
+        return " ".join(a["text"] for a in ann if a["keep"])
 
     return trim
